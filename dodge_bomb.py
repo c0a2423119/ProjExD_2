@@ -2,6 +2,7 @@ import os
 import random
 import sys
 import pygame as pg
+import time
 
 WIDTH, HEIGHT = 1100, 650
 DELTA={
@@ -28,6 +29,44 @@ def check_bound(rct: pg.Rect) -> tuple[bool, bool]:
     return yoko, tate
 
 
+def game_over(screen: pg.Surface) -> None:
+    """
+    ゲームオーバー画面を表示する
+    引数:画面Surface
+    戻り値:なし
+    returnなし
+    """
+    go_sfc = pg.Surface((WIDTH, HEIGHT))  # 空のSurface
+    go_sfc.fill((0, 0, 0))  # 黒い矩形
+    go_sfc.set_alpha(200)  # 透明度
+    font = pg.font.Font(None, 150)  # フォントオブジェクト
+    go_txt = font.render("Game Over", True, (255, 255, 255))  # 白文字
+    go_sfc.blit(go_txt, [WIDTH//2 - go_txt.get_width()//2, HEIGHT//2 - go_txt.get_height()//2])  # 中央に描画
+    kc_img = pg.transform.rotozoom(pg.image.load("fig/8.png"), 0, 1.0)  # こうかとん画像
+    go_sfc.blit(kc_img, [WIDTH//2 - go_txt.get_width()//2 - kc_img.get_width(), HEIGHT//2 - kc_img.get_height()//2])    # こうかとん画像を文字の左に描画
+    go_sfc.blit(kc_img, [WIDTH//2 + go_txt.get_width()//2, HEIGHT//2 - kc_img.get_height()//2])  # こうかとん画像を文字の右に描画
+    screen.blit(go_sfc, [0, 0])  # screenにblit
+    pg.display.update()  # 画面更新
+    time.sleep(5)  # 5秒間待機
+
+
+def init_bb_imgs() -> tuple[list[pg.Surface], list[int]]:
+    """
+    中身：無限に拡大,加速するのはおかしいので,10段階程度の大きさを変えた爆弾Surfaceのリストと加速度のリストを準備する
+    これらのリストのタプルbb_imgs, bb_accsを返す
+    使い方：while文の前で呼び出して2つのリストを得る/while文の中でtmrの値に応じて,リストから適切な要素を選択する（一部掲載）：
+    avx = vx*bb_accs[min(tmr//500, 9)]  このavxとavyをmove_ipメソッドに渡す
+    bb_img = bb_imgs[min(tmr//500, 9)]
+    """
+    bb_imgs = []
+    for r in range(1,11):
+        bb_img = pg.Surface((20*r, 20*r))
+        pg.draw.circle(bb_img, (255, 0, 0), (10*r, 10*r), 10*r)  # 色、座標、半径
+        bb_img.set_colorkey((0, 0, 0))
+        bb_imgs.append(bb_img)
+    bb_accs=[a for a in range(1,11)]
+    return bb_imgs, bb_accs
+
 def main():
     pg.display.set_caption("逃げろ！こうかとん")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -39,9 +78,14 @@ def main():
     pg.draw.circle(bb_img, (255, 0, 0), (10, 10), 10)  # 色、座標、半径
     bb_img.set_colorkey((0, 0, 0))
     bb_rct = bb_img.get_rect()
-    bb_rct.centerx = random.randint(0, WIDTH)  # 爆弾の初期位置
-    bb_rct.centery = random.randint(0,HEIGHT)  # 爆弾の初期位置
-    vx, vy = +5, +5  # 爆弾の速度
+        # 爆弾の初期化
+    bb_imgs, bb_accs = init_bb_imgs()     # ← while前に1回だけ呼び出す
+    bb_rct = bb_imgs[0].get_rect()        # ← 最初の爆弾サイズからrect作成
+    bb_rct.centerx = random.randint(0, WIDTH)
+    bb_rct.centery = random.randint(0, HEIGHT)
+    vx, vy = +5, +5
+
+    
     clock = pg.time.Clock()
     tmr = 0
     while True:
@@ -50,7 +94,8 @@ def main():
                 return
         screen.blit(bg_img, [0, 0]) 
         if kk_rct.colliderect(bb_rct):  # こうかとんと爆弾が重なったら
-            return # ゲームオーバー
+            game_over(screen) # ゲームオーバー画面を表示
+            return
 
         key_lst = pg.key.get_pressed()
         sum_mv = [0, 0]
@@ -71,7 +116,11 @@ def main():
         if check_bound(kk_rct)!=(True, True):
             kk_rct.move_ip(-sum_mv[0], -sum_mv[1])
         screen.blit(kk_img, kk_rct)
-        bb_rct.move_ip(vx, vy)  # 爆弾の移動
+        init_bb_imgs()  # 爆弾画像と加速度のリストを初期化
+        bb_img = bb_imgs[min(tmr//500, 9)]  # tmrに応じた爆弾画像
+        avx = vx*bb_accs[min(tmr//500, 9)]  # tmrに応じた横方向の速度
+        avy = vy*bb_accs[min(tmr//500, 9)]  # tmrに応じた縦方向の速度
+        bb_rct.move_ip(avx, avy)  # 爆弾の移動
         yoko, tate = check_bound(bb_rct)
         if not yoko:  # 横方向にはみ出たら
             vx *= -1 # 横方向の速度を反転
