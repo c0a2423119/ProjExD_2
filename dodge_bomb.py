@@ -49,6 +49,8 @@ def main():
             if event.type == pg.QUIT: 
                 return
         screen.blit(bg_img, [0, 0]) 
+        if kk_rct.colliderect(bb_rct):  # こうかとんと爆弾が重なったら
+            return # ゲームオーバー
 
         key_lst = pg.key.get_pressed()
         sum_mv = [0, 0]
@@ -72,9 +74,9 @@ def main():
         bb_rct.move_ip(vx, vy)  # 爆弾の移動
         yoko, tate = check_bound(bb_rct)
         if not yoko:  # 横方向にはみ出たら
-            vx *= -1.1 # 横方向の速度を反転
+            vx *= -1 # 横方向の速度を反転
         if not tate:  # 縦方向にはみ出たら
-            vy *= -1.1  # 縦方向の速度を反転
+            vy *= -1  # 縦方向の速度を反転
         screen.blit(bb_img, bb_rct)  # 爆弾の描画
         pg.display.update()
         tmr += 1
